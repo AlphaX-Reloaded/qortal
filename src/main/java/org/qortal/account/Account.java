@@ -7,13 +7,17 @@ import org.qortal.controller.LiteNode;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.account.RewardShareData;
+import org.qortal.data.naming.NameData;
 import org.qortal.repository.DataException;
+import org.qortal.repository.NameRepository;
 import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+
+import java.util.List;
 
 import static org.qortal.utils.Amounts.prettyAmount;
 
@@ -204,12 +208,25 @@ public class Account {
 	 */
 	public boolean canMint() throws DataException {
 		AccountData accountData = this.repository.getAccountRepository().getAccount(this.address);
+		NameRepository nameRepository = this.repository.getNameRepository();
+
+		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
+		int nameCheckHeight = BlockChain.getInstance().getOnlyMintWithNameHeight();
+		int level = accountData.getLevel();
+
+		String myAddress = accountData.getAddress();
+		List<NameData> myName = nameRepository.getNamesByOwner(myAddress);
+
 		if (accountData == null)
 			return false;
 
-		Integer level = accountData.getLevel();
-		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToMint())
-			return true;
+		if (blockchainHeight >= nameCheckHeight) {
+			if (level >= BlockChain.getInstance().getMinAccountLevelToMint() && myName != null)
+                return true;
+		} else {
+			if (level >= BlockChain.getInstance().getMinAccountLevelToMint())
+                return true;
+		}
 
 		// Founders can always mint, unless they have a penalty
 		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
